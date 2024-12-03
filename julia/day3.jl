@@ -2,7 +2,7 @@
 input = read("inputs/day3", String)
 
 # Define a regular expression to match the valid `mul(X, Y)` instructions
-pattern = r"mul\(\s*(\d+)\s*,\s*(\d+)\s*\)"
+pattern = r"mul\((\d+)\,(\d+)\)"
 # Extract all matches of the `mul` pattern from the input
 matches = eachmatch(pattern, input)
 
