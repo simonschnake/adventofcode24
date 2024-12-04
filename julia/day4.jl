@@ -4,85 +4,86 @@ input = readlines("inputs/day4")
 # Convert the input into a 2D character array (field)
 field = hcat(collect.(input)...)
 
-# Global variable to count occurrences of "XMAS"
-global num_xmas = 0
+# Define all eight possible directions
+const DIRECTIONS = [
+    (0, 1),   # Right
+    (0, -1),  # Left
+    (1, 0),   # Down
+    (-1, 0),  # Up
+    (1, 1),   # Down-Right
+    (-1, -1), # Up-Left
+    (1, -1),  # Down-Left
+    (-1, 1),  # Up-Right
+]
 
 # Function to safely retrieve a character from the field
-# Returns a space (' ') if indices are out of bounds
-function getx(field, i, j)
-    if i < 1 || j < 1 || i > size(field, 1) || j > size(field, 2)
-        return ' '
-    end
-    return field[i, j]
-end
-
-# Loop through each cell in the field
-for i in 1:size(field, 1)  # Iterate through rows
-    for j in 1:size(field, 2)  # Iterate through columns
-        # Skip cells that are not 'X', as 'XMAS' starts with 'X'
-        if field[i, j] != 'X'
-            continue
-        end
-        
-        # Check all possible directions for the word "XMAS"
-        # Horizontal (right)
-        if getx(field, i, j + 1) == 'M' && getx(field, i, j + 2) == 'A' && getx(field, i, j + 3) == 'S'
-            global num_xmas += 1
-        end
-        # Horizontal (left)
-        if getx(field, i, j - 1) == 'M' && getx(field, i, j - 2) == 'A' && getx(field, i, j - 3) == 'S'
-            global num_xmas += 1
-        end
-        # Vertical (down)
-        if getx(field, i + 1, j) == 'M' && getx(field, i + 2, j) == 'A' && getx(field, i + 3, j) == 'S'
-            global num_xmas += 1
-        end
-        # Vertical (up)
-        if getx(field, i - 1, j) == 'M' && getx(field, i - 2, j) == 'A' && getx(field, i - 3, j) == 'S'
-            global num_xmas += 1
-        end
-        # Diagonal (down-right)
-        if getx(field, i + 1, j + 1) == 'M' && getx(field, i + 2, j + 2) == 'A' && getx(field, i + 3, j + 3) == 'S'
-            global num_xmas += 1
-        end
-        # Diagonal (up-left)
-        if getx(field, i - 1, j - 1) == 'M' && getx(field, i - 2, j - 2) == 'A' && getx(field, i - 3, j - 3) == 'S'
-            global num_xmas += 1
-        end
-        # Diagonal (down-left)
-        if getx(field, i + 1, j - 1) == 'M' && getx(field, i + 2, j - 2) == 'A' && getx(field, i + 3, j - 3) == 'S'
-            global num_xmas += 1
-        end
-        # Diagonal (up-right)
-        if getx(field, i - 1, j + 1) == 'M' && getx(field, i - 2, j + 2) == 'A' && getx(field, i - 3, j + 3) == 'S'
-            global num_xmas += 1
-        end
+# Returns nothing if indices are out of bounds
+function get_char(field, i, j)
+    if 1 ≤ i ≤ size(field, 1) && 1 ≤ j ≤ size(field, 2)
+        return field[i, j]
+    else
+        return nothing
     end
 end
 
-# Output the total count of "XMAS" found in the field
-println("Result Part 1: ", num_xmas)
+# Function to count occurrences of a word in all directions
+function count_word(field, word)
+    count = 0
+    nrows, ncols = size(field)
+    word_length = length(word)
 
-# --- Part 2: Finding X-MAS patterns ---
-global num_mas = 0  # Initialize counter for "X-MAS" patterns
-
-# Loop through the field, excluding edges for safety in diagonals
-for i in 2:size(field, 1) - 1  # Skip the first and last row
-    for j in 2:size(field, 2) - 1  # Skip the first and last column
-        # Check if the center of a potential X-MAS is 'A'
-        if field[i, j] != 'A'
-            continue
-        end
-        # Check diagonals forming an "X" with 'MAS' or 'SAM'
-        a = join([field[i-1, j-1], field[i, j], field[i+1, j+1]])
-        if a == "MAS" || a == "SAM"
-            b = join([field[i-1, j+1], field[i, j], field[i+1, j-1]])
-            if b == "MAS" || b == "SAM"
-                global num_mas += 1
+    for i in 1:nrows
+        for j in 1:ncols
+            if field[i, j] != word[1]
+                continue
+            end
+            for (di, dj) in DIRECTIONS
+                match = true
+                for k in 0:word_length - 1
+                    ii = i + di * k
+                    jj = j + dj * k
+                    char = get_char(field, ii, jj)
+                    if char != word[k + 1]
+                        match = false
+                        break
+                    end
+                end
+                if match
+                    count += 1
+                end
             end
         end
     end
+    return count
 end
 
-# Output the total count of "X-MAS" patterns found
+# Part 1: Count occurrences of "XMAS"
+num_xmas = count_word(field, "XMAS")
+println("Result Part 1: ", num_xmas)
+
+# Function to count "X-MAS" patterns
+function count_x_mas_patterns(field)
+    count = 0
+    nrows, ncols = size(field)
+
+    for i in 2:nrows - 1
+        for j in 2:ncols - 1
+            if field[i, j] != 'A'
+                continue
+            end
+            # Check both diagonals for "MAS" or "SAM"
+            diag1 = [field[i - 1, j - 1], field[i, j], field[i + 1, j + 1]]
+            diag2 = [field[i - 1, j + 1], field[i, j], field[i + 1, j - 1]]
+            s1 = join(diag1)
+            s2 = join(diag2)
+            if (s1 == "MAS" || s1 == "SAM") && (s2 == "MAS" || s2 == "SAM")
+                count += 1
+            end
+        end
+    end
+    return count
+end
+
+# Part 2: Count "X-MAS" patterns
+num_mas = count_x_mas_patterns(field)
 println("Result Part 2: ", num_mas)
