@@ -1,70 +1,115 @@
-# Import the RegularExpressions module for pattern matching
-using RegularExpressions
-
-# Read the puzzle input file as a single string
-input = read("inputs/day13", String)
-
-# Define a regular expression to parse each machine's configuration
-const REG_EXP = r"Button A: X\+(\d+), Y\+(\d+)\nButton B: X\+(\d+), Y\+(\d+)\nPrize: X=(\d+), Y=(\d+)"
-
-# Function to parse the input and extract machine configurations
-function parse_input(input)
-    # Split the input into blocks for each machine, separated by double newlines
-    map(split(input, "\n\n")) do claw_mach
-        # Match the regular expression to the block and extract the captures
-        cap = match.(REG_EXP, claw_mach).captures
-        # If all captures are valid, parse them into integers and structure the data
-        if all(x -> x !== nothing, cap)
-            x = map(x -> parse(Int, x), cap)
-            # Return a tuple containing the button vectors and prize position
-            (a = [x[1], x[2]], b = [x[3], x[4]], prize = [x[5], x[6]])
-        else
-            # Return nothing if the parsing fails
-            nothing
-        end
-    end
+# Define a struct to represent each claw machine's configuration
+struct ClawMachine
+    button_a :: Tuple{Int, Int}  # (X movement, Y movement) for Button A
+    button_b :: Tuple{Int, Int}  # (X movement, Y movement) for Button B
+    prize_x :: Int               # X-coordinate of the prize
+    prize_y :: Int               # Y-coordinate of the prize
 end
 
-# Function to solve for the minimum tokens required for a machine's configuration
-function solve(run)
-    # Decompose the machine's configuration into button vectors and prize position
-    a, b, prize = run
+# Regular expression pattern to parse each claw machine's configuration
+const MACHINE_REGEX = r"Button A: X\+(\d+), Y\+(\d+)\nButton B: X\+(\d+), Y\+(\d+)\nPrize: X=(\d+), Y=(\d+)"
 
-    # Calculate the slope of the prize position (Y / X)
-    p = prize[2] // prize[1]
+# Offset to adjust prize positions for Part 2
+const OFFSET = 10_000_000_000_000
 
-    # Solve for the number of presses (n_a for Button A, n_b for Button B)
-    n_a, n_b = (b[2] - p * b[1]) // (p * a[1] - a[2]) |> x -> (numerator(x), denominator(x))
-    
-    # Calculate the scalar multipliers for the button presses
-    k = prize .÷ (n_a * a + n_b * b)
+# Function to parse the input text and return a vector of ClawMachine instances
+function parse_input(input::String)::Vector{ClawMachine}
+    machines = Vector{ClawMachine}()
 
-    # Verify the solution by checking the resulting claw position matches the prize
-    solved = k[1] * (n_a * a + n_b * b) - prize
+    # Split the input into blocks separated by two newlines
+    for block in split(input, "\n\n")
+        # Attempt to match the regex pattern
+        m = match(MACHINE_REGEX, block)
+        if m !== nothing
+            captures = m.captures
+            # Parse captured strings into integers
+            button_a_x = parse(Int, captures[1])
+            button_a_y = parse(Int, captures[2])
+            button_b_x = parse(Int, captures[3])
+            button_b_y = parse(Int, captures[4])
+            prize_x = parse(Int, captures[5])
+            prize_y = parse(Int, captures[6])
 
-    # Return the minimum cost if the solution is valid, otherwise return 0
-    if solved == [0, 0]
-        return k[1] * (n_a * 3 + n_b)
+            # Create a ClawMachine instance and add it to the list
+            push!(machines, ClawMachine(
+                (button_a_x, button_a_y),
+                (button_b_x, button_b_y),
+                prize_x,
+                prize_y
+            ))
+        else
+            @warn "Failed to parse machine configuration: $block"
+        end
+    end
+
+    return machines
+end
+
+# Function to solve for the minimum tokens required to win the prize for a single machine
+function solve_machine(machine::ClawMachine)::Int
+    # Extract button movements and prize position
+    (a_x, a_y) = machine.button_a
+    (b_x, b_y) = machine.button_b
+    (p_x, p_y) = (machine.prize_x, machine.prize_y)
+
+    # Set up the system of linear equations:
+    # a_x * n_a + b_x * n_b = p_x
+    # a_y * n_a + b_y * n_b = p_y
+
+    # Calculate the determinant
+    det = a_x * b_y - a_y * b_x
+    if det == 0
+        # The system has no unique solution
+        return 0
+    end
+
+    # Use Cramer's Rule to solve for n_a and n_b
+    n_a = (p_x * b_y - p_y * b_x) / det
+    n_b = (a_x * p_y - a_y * p_x) / det
+
+    # Check if solutions are non-negative integers
+    if n_a >= 0 && n_b >= 0 && isinteger(n_a) && isinteger(n_b)
+        # Calculate the total cost: 3 tokens for each Button A press and 1 token for each Button B press
+        total_cost = Int(n_a) * 3 + Int(n_b) * 1
+        return total_cost
     else
+        # No valid solution exists
         return 0
     end
 end
 
-# Parse the input data into machine configurations
-runs = parse_input(input)
-
-# Solve for the total minimum tokens required for all machines (Part 1)
-ans1 = solve.(runs) |> sum
-println("Part 1: ", ans1)
-
-# Part 2: Add a large offset to all prize positions and recalculate
-const HIGER_PRIZE = 10000000000000
-
-runs2 = map(runs) do run
-    # Adjust the prize position for each machine
-    (a = run.a, b = run.b, prize = run.prize .+ HIGER_PRIZE)
+# Function to solve all machines and sum their minimum token costs
+function solve_all(machines::Vector{ClawMachine})::Int
+    return sum(solve_machine.(machines))
 end
 
-# Solve for the total minimum tokens required with adjusted prize positions (Part 2)
-ans2 = solve.(runs2) |> sum
-println("Part 2: ", ans2)
+# Main execution flow
+function main()
+    # Read the input file
+    input = read("inputs/day13", String)
+
+    # Parse the input into claw machines
+    machines = parse_input(input)
+
+    # Part 1: Solve with original prize positions
+    ans1 = solve_all(machines)
+    println("Part 1: ", ans1)
+
+    # Part 2: Adjust prize positions by adding 10^13 and solve
+
+    adjusted_machines = ClawMachine[]
+    for machine in machines
+        push!(adjusted_machines, ClawMachine(
+            machine.button_a,
+            machine.button_b,
+            machine.prize_x + OFFSET,
+            machine.prize_y + OFFSET
+        ))
+    end
+
+    ans2 = solve_all(adjusted_machines)
+    println("Part 2: ", ans2)
+end
+
+# Execute the main function
+main()
