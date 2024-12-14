@@ -73,23 +73,22 @@ function solve_part2(input)
         # Fill the field with the current robot positions
         field = fill_field(robots, (101, 103))
 
-        # Check for an Easter egg pattern: fewer than 10 empty rows and columns
-        if sum(sum(field, dims=1) .== 0) <= 10 && sum(sum(field, dims=2) .== 0) <= 10
-            println("Steps: $i")
-            
-            # Print the field as a visual representation
-            ncol, nrow = size(field)
-            for i in 1:nrow
-                for j in 1:ncol
-                    if field[j, i] >= 1
-                        print("#")  # Represent a robot with '#'
-                    else
-                        print(".")  # Represent an empty tile with '.'
-                    end
+        sum(sum(field, dims=1) .== 0) <= 10 && continue
+        sum(sum(field, dims=2) .== 0) <= 10 && continue
+
+        println("Steps: $i")
+        
+        # Print the field as a visual representation
+        ncol, nrow = size(field)
+        for i in 1:nrow
+            for j in 1:ncol
+                if field[j, i] >= 1
+                    print("#")  # Represent a robot with '#'
+                else
+                    print(".")  # Represent an empty tile with '.'
                 end
-                println() # Move to the next line after printing a row
             end
-            return
+            println() # Move to the next line after printing a row
         end
     end
 end
